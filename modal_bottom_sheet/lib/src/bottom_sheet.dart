@@ -214,7 +214,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
     }
 
     // Bounce top
-    const lowResistanceBound = 0.65;
+    const lowResistanceBound = 0.75;
     final animController = widget.animationController;
     final bounce = widget.bounce == true;
     final shouldBounce = _bounceDragController.value > 0;
@@ -225,9 +225,9 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
     }
     if (!widget.enableDrag && animController.value <= lowResistanceBound) {
       return;
-    } else if (!widget.enableDrag && animController.value <= 0.8) {
+    } else if (!widget.enableDrag && animController.value <= 0.85) {
       animController.value -= 0.0003;
-    } else if (!widget.enableDrag && animController.value <= 0.9) {
+    } else if (!widget.enableDrag && animController.value <= 0.92) {
       animController.value -= 0.002;
     } else {
       final p = !widget.enableDrag ? progress / 2.5 : progress;
