@@ -16,8 +16,7 @@ const double _minFlingVelocity = 500.0;
 const double _closeProgressThreshold = 0.6;
 const double _willPopThreshold = 0.8;
 
-typedef WidgetWithChildBuilder = Widget Function(
-    BuildContext context, Animation<double> animation, Widget child);
+typedef WidgetWithChildBuilder = Widget Function(BuildContext context, Animation<double> animation, Widget child);
 
 /// A custom bottom sheet.
 ///
@@ -47,8 +46,7 @@ class ModalBottomSheet extends StatefulWidget {
     this.minFlingVelocity = _minFlingVelocity,
     double? closeProgressThreshold,
     this.willPopThreshold = _willPopThreshold,
-  })  : closeProgressThreshold =
-            closeProgressThreshold ?? _closeProgressThreshold;
+  }) : closeProgressThreshold = closeProgressThreshold ?? _closeProgressThreshold;
 
   /// The closeProgressThreshold parameter
   /// specifies when the bottom sheet will be dismissed when user drags it.
@@ -132,8 +130,7 @@ class ModalBottomSheet extends StatefulWidget {
   }
 }
 
-class ModalBottomSheetState extends State<ModalBottomSheet>
-    with TickerProviderStateMixin {
+class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderStateMixin {
   final GlobalKey _childKey = GlobalKey(debugLabel: 'BottomSheet child');
 
   ScrollController get _scrollController => widget.scrollController;
@@ -146,19 +143,16 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
     return renderBox.size.height;
   }
 
-  bool get _dismissUnderway =>
-      widget.animationController.status == AnimationStatus.reverse;
+  bool get _dismissUnderway => widget.animationController.status == AnimationStatus.reverse;
 
   // Detect if user is dragging.
   // Used on NotificationListener to detect if ScrollNotifications are
   // before or after the user stop dragging
   bool isDragging = false;
 
-  bool get hasReachedWillPopThreshold =>
-      widget.animationController.value < _willPopThreshold;
+  bool get hasReachedWillPopThreshold => widget.animationController.value < _willPopThreshold;
 
-  bool get hasReachedCloseThreshold =>
-      widget.animationController.value < widget.closeProgressThreshold;
+  bool get hasReachedCloseThreshold => widget.animationController.value < widget.closeProgressThreshold;
 
   void _close() {
     isDragging = false;
@@ -166,7 +160,14 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
   }
 
   void _cancelClose() {
-    widget.animationController.forward().then((value) {
+    final animFunction = widget.enableDrag
+        ? widget.animationController.forward()
+        : widget.animationController.animateTo(
+            1,
+            duration: Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+    animFunction.then((value) {
       // When using WillPop, animation doesn't end at 1.
       // Check more in detail the problem
       if (!widget.animationController.isCompleted) {
@@ -191,7 +192,6 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
 
   void _handleDragUpdate(double primaryDelta) async {
     animationCurve = Curves.linear;
-    assert(widget.enableDrag, 'Dragging is disabled');
 
     if (_dismissUnderway) return;
     isDragging = true;
@@ -210,53 +210,65 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
     }
 
     // Bounce top
+    const lowResistanceBound = 0.65;
+    final animController = widget.animationController;
     final bounce = widget.bounce == true;
     final shouldBounce = _bounceDragController.value > 0;
-    final isBouncing = (widget.animationController.value - progress) > 1;
+    final isBouncing = (animController.value - progress) > 1;
     if (bounce && (shouldBounce || isBouncing)) {
       _bounceDragController.value -= progress * 10;
       return;
     }
-
-    widget.animationController.value -= progress;
+    if (!widget.enableDrag && animController.value <= lowResistanceBound) {
+      return;
+    } else if (!widget.enableDrag && animController.value <= 0.8) {
+      animController.value -= 0.0003;
+    } else if (!widget.enableDrag && animController.value <= 0.9) {
+      animController.value -= 0.002;
+    } else {
+      final p = !widget.enableDrag ? progress / 2.5 : progress;
+      animController.value -= p;
+    }
   }
 
   void _handleDragEnd(double velocity) async {
-    assert(widget.enableDrag, 'Dragging is disabled');
+    if (!widget.enableDrag) {
+      _cancelClose();
+    } else {
+      animationCurve = BottomSheetSuspendedCurve(
+        widget.animationController.value,
+        curve: _defaultCurve,
+      );
 
-    animationCurve = BottomSheetSuspendedCurve(
-      widget.animationController.value,
-      curve: _defaultCurve,
-    );
+      if (_dismissUnderway || !isDragging) return;
+      isDragging = false;
+      // ignore: unawaited_futures
+      _bounceDragController.reverse();
 
-    if (_dismissUnderway || !isDragging) return;
-    isDragging = false;
-    // ignore: unawaited_futures
-    _bounceDragController.reverse();
-
-    Future<void> tryClose() async {
-      if (widget.shouldClose != null) {
-        _cancelClose();
-        bool canClose = await shouldClose();
-        if (canClose) {
+      Future<void> tryClose() async {
+        if (widget.shouldClose != null) {
+          _cancelClose();
+          bool canClose = await shouldClose();
+          if (canClose) {
+            _close();
+          }
+        } else {
           _close();
         }
-      } else {
-        _close();
       }
-    }
 
-    // If speed is bigger than _minFlingVelocity try to close it
-    if (velocity > widget.minFlingVelocity) {
-      tryClose();
-    } else if (hasReachedCloseThreshold) {
-      if (widget.animationController.value > 0.0) {
-        // ignore: unawaited_futures
-        widget.animationController.fling(velocity: -1.0);
+      // If speed is bigger than _minFlingVelocity try to close it
+      if (velocity > widget.minFlingVelocity) {
+        tryClose();
+      } else if (hasReachedCloseThreshold) {
+        if (widget.animationController.value > 0.0) {
+          // ignore: unawaited_futures
+          widget.animationController.fling(velocity: -1.0);
+        }
+        tryClose();
+      } else {
+        _cancelClose();
       }
-      tryClose();
-    } else {
-      _cancelClose();
     }
   }
 
@@ -276,10 +288,9 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
     // ignore: invalid_use_of_protected_member
     if (_scrollController.positions.length > 1) {
       // ignore: invalid_use_of_protected_member
-      scrollPosition = _scrollController.positions
-          .firstWhere((p) => p.isScrollingNotifier.value,
-              // ignore: invalid_use_of_protected_member
-              orElse: () => _scrollController.positions.first);
+      scrollPosition = _scrollController.positions.firstWhere((p) => p.isScrollingNotifier.value,
+          // ignore: invalid_use_of_protected_member
+          orElse: () => _scrollController.positions.first);
     } else {
       scrollPosition = _scrollController.position;
     }
@@ -287,9 +298,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
     if (scrollPosition.axis == Axis.horizontal) return;
 
     final isScrollReversed = scrollPosition.axisDirection == AxisDirection.down;
-    final offset = isScrollReversed
-        ? scrollPosition.pixels
-        : scrollPosition.maxScrollExtent - scrollPosition.pixels;
+    final offset = isScrollReversed ? scrollPosition.pixels : scrollPosition.maxScrollExtent - scrollPosition.pixels;
 
     if (offset <= 0) {
       // Clamping Scroll Physics end with a ScrollEndNotification with a DragEndDetail class
@@ -342,8 +351,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
   @override
   void initState() {
     animationCurve = _defaultCurve;
-    _bounceDragController =
-        AnimationController(vsync: this, duration: Duration(milliseconds: 300));
+    _bounceDragController = AnimationController(vsync: this, duration: Duration(milliseconds: 300));
 
     // Todo: Check if we can remove scroll Controller
     super.initState();
@@ -373,32 +381,32 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
           widget.animationController.value,
         );
 
-        final draggableChild = !widget.enableDrag
-            ? child
-            : KeyedSubtree(
-                key: _childKey,
-                child: AnimatedBuilder(
-                  animation: bounceAnimation,
-                  builder: (context, _) => CustomSingleChildLayout(
-                    delegate: _CustomBottomSheetLayout(bounceAnimation.value),
-                    child: GestureDetector(
-                      onVerticalDragUpdate: (details) {
-                        _handleDragUpdate(details.delta.dy);
-                      },
-                      onVerticalDragEnd: (details) {
-                        _handleDragEnd(details.primaryVelocity ?? 0);
-                      },
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (ScrollNotification notification) {
-                          _handleScrollUpdate(notification);
-                          return false;
-                        },
-                        child: child!,
-                      ),
-                    ),
-                  ),
+        final draggableChild = KeyedSubtree(
+          key: _childKey,
+          child: AnimatedBuilder(
+            animation: bounceAnimation,
+            builder: (context, _) => CustomSingleChildLayout(
+              delegate: _CustomBottomSheetLayout(bounceAnimation.value),
+              child: GestureDetector(
+                onVerticalDragUpdate: (details) {
+                  if ((details.delta.dy > 0 && details.delta.dx >= 0)) {
+                    _handleDragUpdate(details.delta.dy);
+                  }
+                },
+                onVerticalDragEnd: (details) {
+                  _handleDragEnd(details.primaryVelocity ?? 0);
+                },
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification notification) {
+                    _handleScrollUpdate(notification);
+                    return false;
+                  },
+                  child: child!,
                 ),
-              );
+              ),
+            ),
+          ),
+        );
         return ClipRect(
           child: CustomSingleChildLayout(
             delegate: _ModalBottomSheetLayout(
