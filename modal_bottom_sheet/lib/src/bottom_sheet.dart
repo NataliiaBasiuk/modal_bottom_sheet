@@ -46,6 +46,7 @@ class ModalBottomSheet extends StatefulWidget {
     this.minFlingVelocity = _minFlingVelocity,
     double? closeProgressThreshold,
     this.willPopThreshold = _willPopThreshold,
+    this.needCloseResistance = false,
   }) : closeProgressThreshold = closeProgressThreshold ?? _closeProgressThreshold;
 
   /// The closeProgressThreshold parameter
@@ -72,6 +73,8 @@ class ModalBottomSheet extends StatefulWidget {
   // Force the widget to fill the maximum size of the viewport
   // or if false it will fit to the content of the widget
   final bool expanded;
+
+  final bool needCloseResistance;
 
   final WidgetWithChildBuilder? containerBuilder;
 
@@ -191,6 +194,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
   ParametricCurve<double> animationCurve = Curves.linear;
 
   void _handleDragUpdate(double primaryDelta) async {
+    assert((!widget.enableDrag && widget.needCloseResistance) || widget.enableDrag, 'Dragging is disabled');
     animationCurve = Curves.linear;
 
     if (_dismissUnderway) return;
@@ -198,7 +202,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
 
     final progress = primaryDelta / (_childHeight ?? primaryDelta);
 
-    if (widget.shouldClose != null && hasReachedWillPopThreshold) {
+    if (widget.shouldClose != null && hasReachedWillPopThreshold && widget.enableDrag) {
       _cancelClose();
       final canClose = await shouldClose();
       if (canClose) {
@@ -232,6 +236,8 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
   }
 
   void _handleDragEnd(double velocity) async {
+    assert((!widget.enableDrag && widget.needCloseResistance) || widget.enableDrag, 'Dragging is disabled');
+
     if (!widget.enableDrag) {
       _cancelClose();
     } else {
