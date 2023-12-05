@@ -416,6 +416,7 @@ class CupertinoScaffold extends StatefulWidget {
     bool bounce = true,
     bool? isDismissible,
     bool enableDrag = true,
+    Radius topRadius = _kDefaultTopRadius,
     Duration? duration,
     RouteSettings? settings,
     BoxShadow? shadow,
@@ -431,7 +432,6 @@ class CupertinoScaffold extends StatefulWidget {
       assert(debugCheckHasMaterialLocalizations(context));
       barrierLabel = MaterialLocalizations.of(context).modalBarrierDismissLabel;
     }
-    final topRadius = CupertinoScaffold.of(context)!.topRadius;
     final transitionBackgroundColor = CupertinoScaffold.of(context)!.transitionBackgroundColor;
     final overlayStyle = overlayStyleFromColor(transitionBackgroundColor);
     final result = await Navigator.of(context, rootNavigator: useRootNavigator).push(CupertinoModalBottomSheetRoute<T>(
@@ -441,7 +441,7 @@ class CupertinoScaffold extends StatefulWidget {
       containerBuilder: (context, _, child) => _CupertinoBottomSheetContainer(
         child: child,
         backgroundColor: backgroundColor,
-        topRadius: topRadius ?? _kDefaultTopRadius,
+        topRadius: topRadius,
         shadow: shadow,
         overlayStyle: overlayStyle,
       ),
@@ -452,7 +452,7 @@ class CupertinoScaffold extends StatefulWidget {
       isDismissible: isDismissible ?? expand == false ? true : false,
       modalBarrierColor: barrierColor ?? Colors.black12,
       enableDrag: enableDrag,
-      topRadius: topRadius ?? _kDefaultTopRadius,
+      topRadius: topRadius,
       animationCurve: animationCurve,
       previousRouteAnimationCurve: previousRouteAnimationCurve,
       duration: duration,
