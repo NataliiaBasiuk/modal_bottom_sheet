@@ -223,14 +223,19 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
       _bounceDragController.value -= progress * 10;
       return;
     }
+    final isDirectionUp = progress.isNegative;
     if (!widget.enableDrag && animController.value <= lowResistanceBound) {
       return;
     } else if (!widget.enableDrag && animController.value <= 0.85) {
-      animController.value -= 0.0003;
+      animController.value -= isDirectionUp ? progress : progress / 8;
     } else if (!widget.enableDrag && animController.value <= 0.92) {
-      animController.value -= 0.002;
+      animController.value -= isDirectionUp ? progress : progress / 4;
     } else {
-      final p = !widget.enableDrag ? progress / 2.5 : progress;
+      final p = !widget.enableDrag
+          ? isDirectionUp
+              ? progress
+              : progress / 3
+          : progress;
       animController.value -= p;
     }
   }
@@ -395,9 +400,7 @@ class ModalBottomSheetState extends State<ModalBottomSheet> with TickerProviderS
               delegate: _CustomBottomSheetLayout(bounceAnimation.value),
               child: GestureDetector(
                 onVerticalDragUpdate: (details) {
-                  if ((details.delta.dy > 0 && details.delta.dx >= 0)) {
-                    _handleDragUpdate(details.delta.dy);
-                  }
+                  _handleDragUpdate(details.delta.dy);
                 },
                 onVerticalDragEnd: (details) {
                   _handleDragEnd(details.primaryVelocity ?? 0);
